@@ -1,0 +1,525 @@
+---
+# tasks file for conf_agents
+- name: debug
+  debug:
+    var: api_token.data.tokenValue
+
+- name: Download Jenkins CLI
+  get_url:
+    url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+    dest: "/tmp/jenkins-cli.jar"
+
+- name: Debug the generated token
+  ansible.builtin.debug:
+    msg: "token: {{  api_token.data.tokenValue }}"
+
+- name: Set token fact
+  ansible.builtin.set_fact:
+    jenkins_api_token: "{{ api_token.data.tokenValue }}"
+# - name: Create a directory
+#   ansible.builtin.file:
+#     path: "{{ ssh_private_key_path }}"
+#     state: directory
+#     mode: 0755
+    
+- name: Generate SSH key pair
+  ansible.builtin.openssh_keypair:
+    path: "{{ ssh_private_key_path }}"
+    type: rsa
+    size: 2048
+  register: ssh_keypair
+
+- name: Copy the public key to the agent1 container
+  ansible.builtin.command:
+    cmd: "docker exec -i jenkins_sandbox_agent1 /bin/bash -c 'mkdir -p /home/{{ ssh_user }}/.ssh && echo {{ ssh_keypair.public_key }} > /home/{{ ssh_user }}/.ssh/authorized_keys && chmod 600 /home/{{ ssh_user }}/.ssh/authorized_keys && chown -R {{ ssh_user }}:{{ ssh_user }} /home/{{ ssh_user }}/.ssh'"
+  register: pubkey_copy
+
+- name: Verify public key was copied
+  ansible.builtin.command:
+    cmd: "docker exec -i jenkins_sandbox_agent1 /bin/bash -c 'cat /home/{{ ssh_user }}/.ssh/authorized_keys'"
+  register: pubkey_verify
+- name: Debug public key on agent
+  ansible.builtin.debug:
+    var: pubkey_verify.stdout
+
+
+- name: Copy the public key to the agent2 container
+  ansible.builtin.command:
+    cmd: "docker exec -i jenkins_sandbox_agent2 /bin/bash -c 'mkdir -p /home/{{ ssh_user }}/.ssh && echo {{ ssh_keypair.public_key }} > /home/{{ ssh_user }}/.ssh/authorized_keys && chmod 600 /home/{{ ssh_user }}/.ssh/authorized_keys && chown -R {{ ssh_user }}:{{ ssh_user }} /home/{{ ssh_user }}/.ssh'"
+  register: pubkey_copy
+
+- name: Verify public key was copied
+  ansible.builtin.command:
+    cmd: "docker exec -i jenkins_sandbox_agent2 /bin/bash -c 'cat /home/{{ ssh_user }}/.ssh/authorized_keys'"
+  register: pubkey_verify
+- name: Debug public key on agent
+  ansible.builtin.debug:
+    var: pubkey_verify.stdout
+# - name: Install SSH Credentials Plugin in Jenkins
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} install-plugin ssh-credentials
+#   args:
+#     executable: /bin/bash
+#   register: install_plugin_result
+
+
+- name: Backup Jenkins credentials file in the container
+  shell: |
+    docker exec -i jenkins_sandbox /bin/bash -c "cp /var/jenkins_home/credentials.xml /var/jenkins_home/credentials.xml.bak"
+
+- name: Read the private key file
+  shell: cat "{{ ssh_private_key_path }}"
+  register: private_key
+
+- name: Remove the last three lines from credentials.xml
+  shell: |
+    docker exec -i jenkins_sandbox /bin/bash -c "sed -i '$d' /var/jenkins_home/credentials.xml && \
+    sed -i '$d' /var/jenkins_home/credentials.xml && \
+    sed -i '$d' /var/jenkins_home/credentials.xml && \
+    sed -i '$d' /var/jenkins_home/credentials.xml"
+
+- name: Append the new credentials to credentials.xml
+  shell: |
+    docker exec -i jenkins_sandbox /bin/bash -c "cat >> /var/jenkins_home/credentials.xml <<EOL
+            <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin=\"ssh-credentials@349.vb_8b_6b_9709f5b_\">
+              <scope>SYSTEM</scope>
+              <id>{{ credentials_id }}</id>
+              <description>Ansible-created SSH key</description>
+              <username>{{ ssh_user }}</username>
+              <usernameSecret>false</usernameSecret>
+              <privateKeySource class=\"com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource\">
+                <privateKey>{{ private_key.stdout }}</privateKey>
+              </privateKeySource>
+            </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+          </java.util.concurrent.CopyOnWriteArrayList>
+        </entry>
+      </domainCredentialsMap>
+    </com.cloudbees.plugins.credentials.SystemCredentialsProvider>
+    EOL"
+
+- name: Ensure proper permissions for Jenkins credentials file in the container
+  shell: |
+    docker exec -i jenkins_sandbox /bin/bash -c "chmod 644 /var/jenkins_home/credentials.xml && \
+    chown jenkins:jenkins /var/jenkins_home/credentials.xml"
+
+- name: Restart Jenkins container
+  shell: docker restart jenkins_sandbox
+
+# handlers:
+#   - name: Restart Jenkins
+#     service:
+#       name: jenkins
+#       state: restarted
+# - name: read the file
+#   shell: cat "{{ ssh_private_key_path }}"
+#   register: private_key
+
+
+# - name: debug
+#   debug:
+#     var : private_key.stdout
+
+
+# - name: Create SSH credentials in Jenkins
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-credentials-by-xml system::system::jenkins _ <<EOF
+#     <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+#       <scope>SYSTEM</scope>
+#       <id>{{ credentials_id }}</id>
+#       <username>{{ ssh_user }}</username>
+#       <privateKey>{{ private_key.stdout | regex_replace('^(.*)$', '          \\1') }}</privateKey>
+#     </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+#     EOF
+#   args:
+#     executable: /bin/bash
+#   register: create_credentials_result
+
+
+        # <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin="ssh-credentials@349.vb_8b_6b_9709f5b_">
+        #   <scope>SYSTEM</scope>
+        #   <id>1100</id>
+        #   <description></description>
+        #   <username>jenkins</username>
+        #   <usernameSecret>false</usernameSecret>
+        #   <privateKeySource class="com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource">
+        #     <privateKey>{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}</privateKey>
+        #   </privateKeySource>
+        # </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+
+
+# <privateKeySource class="com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource">
+#         <privateKey>{{ ssh_private_key_path }}</privateKey>
+#       </privateKeySource>
+
+# - name: Create credentials XML file for BasicSSHUserPrivateKey
+#   become: true
+#   copy:
+#     dest: /tmp/credentials.xml
+#     content: |
+#       <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+#         <scope>GLOBAL</scope>
+#         <id>"1000"</id>
+#         <username>"{{ ssh_user }}"</username>
+#         <privateKey>
+#           <value>"{{ private_key }}"</value>
+#         </privateKey>
+#         <passphrase></passphrase>
+#       </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+
+# - name: Create Jenkins SSH Credentials (with Jenkins CLI)
+#   command: >
+#     java -jar /tmp/jenkins-cli.jar -s "{{ jenkins_url }}" -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-credentials-by-xml system::system::jenkins _ <<EOF
+
+#   "${SCRIPT_FOLDER}/jenkins-cli.sh" "${CI_INSTANCE_PATH}" "${cli_command}" "system::system::jenkins" "${domain_name}" ${update_id} <<EOF
+# <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+#   <scope>GLOBAL</scope>
+#   <id>${id}</id>
+#   <username>${username}</username>
+#   <description>${description}</description>
+#   <passphrase>${passphrase}</passphrase>
+#   <privateKeySource class="com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey\$DirectEntryPrivateKeySource">
+#     <privateKey>${id_rsa}</privateKey>
+#   </privateKeySource>
+# </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+# EOF
+# }
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-credentials-by-xml system::system::jenkins _ <<EOF
+#     <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin="credentials@2.3.15">
+#       <scope>SYSTEM</scope>
+#       <id>10000</id>
+#       <description>SSH sshcredentials for Jenkins node</description>
+#       <username>{{ ssh_user }}</username>
+#       <privateKeySource class="com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource">
+#         <privateKey>{{ ssh_private_key_path }}</privateKey>
+#       </privateKeySource>
+#     </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+#     EOF
+#   args:
+#     executable: /bin/bash
+#   register: create_credentials_result
+
+# - name: Show result of credentials creation
+#   debug:
+#     var: create_credentials_result.stdout_lines
+  # - name: Add SSH credential to Jenkins
+  #   ansible.builtin.uri:
+  #     url: "{{ jenkins_url }}/credentials/store/system/domain/_/createCredentials"
+  #     method: POST
+- name: Get the IP address of a Docker container
+  ansible.builtin.command:
+      cmd: "docker inspect -f '{% raw %}{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' jenkins_sandbox_agent1 "
+  register: agent1_ip
+# - name: Get IP address of Jenkins agent1 container
+#   ansible.builtin.command:
+#     cmd: docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' jenkins_sandbox_agent1
+#   register: agent1_ip
+
+- name: Get IP address of Jenkins agent2 container
+  ansible.builtin.command:
+      cmd: "docker inspect -f '{% raw %}{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' jenkins_sandbox_agent2 "
+  register: agent2_ip
+
+- name: Debug IP addresses of agents
+  ansible.builtin.debug:
+    msg:
+      - "Agent 1 IP: {{ agent1_ip.stdout }}"
+      - "Agent 2 IP: {{ agent2_ip.stdout }}"
+
+
+
+# - name: establish credentials
+#   jenkins_script:
+#     script: |
+#       import jenkins.model.*
+#       import com.cloudbees.plugins.credentials.CredentialsProvider
+#       import com.cloudbees.plugins.credentials.CredentialsScope
+#       import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials
+#       import com.cloudbees.plugins.credentials.domains.Domain
+#       import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl
+#       def domain = Domain.global()
+#       def instance = Jenkins.instance
+#       def credstore = instance.getExtensionList(
+#           'com.cloudbees.plugins.credentials.SystemCredentialsProvider'
+#           )[0].getStore()
+#       def existingCreds = CredentialsProvider.lookupCredentials(
+#           StandardUsernameCredentials.class, instance).findResult {
+#               it.username == '${username}' ? it : null
+#           }
+#       def newCreds = new UsernamePasswordCredentialsImpl(
+#           CredentialsScope.GLOBAL, null,
+#           '${description}', '${username}', '${password}')
+#       if (existingCreds) {
+#           credstore.updateCredentials(domain, existingCreds, newCreds)
+#       } else {
+#           credstore.addCredentials(domain, newCreds)
+#       }
+#     args:
+#       description: "agent credential"
+#       username: "jenkins"
+#       password: "jenkins"
+#     user: "admin"
+#     password: "admin"
+
+
+
+
+
+# - name: Add credential to Node
+#   uri:
+#     url: "http://localhost:8080/credentials/store/system/domain/_/createCredentials"
+#     user: "admin11ebd6adb733acbb32303357f0ef8cad90"
+#     method: POST
+#     status_code: 302
+#     body_format: form-urlencoded
+#     force_basic_auth: true
+#     body: |
+#       json={
+#       "": "0",
+#       "credentials": {
+#       "scope": "GLOBAL",
+#       "id": "jenkins_linux_slave1_auth",
+#       "username": "jenkins",
+#       "password": "jenkins",
+#       "privateKeySource": {
+#         "stapler-class": "com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource",
+#         "privateKey": "{{ ssh_private_key_path }}"
+#       },
+#       "description": "Jenkins Linux Slave1 Authentication",
+#       "stapler-class": "com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey"
+#       }
+#       }
+
+# - name: Add SSH credential to Jenkins
+#   ansible.builtin.uri:
+#     url: "http://localhost:8080/credentials/store/system/domain/_/createCredentials"
+#     method: POST
+#     user: "admin "
+#     password: "11ebd6adb733acbb32303357f0ef8cad90"
+#     force_basic_auth: true
+#     headers:
+#       Content-Type: "application/json"
+
+#     body_format: json
+#     body: |
+#       {
+#         "": "0",
+#         "credentials": {
+#           "scope": "GLOBAL",
+#           "id": "12",
+#           "username": "jenkins",
+#           "privateKeySource": {
+#             "stapler-class": "com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource",
+#             "privateKey": "{{ ssh_private_key_path }}"
+#           },
+#           "description": "SSH key for agent agent1",
+#           "$class": "com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey"
+#         }
+#       }
+#     status_code: [200, 201]
+
+# - name: Add Jenkins agent1
+#   ansible.builtin.uri:
+#     url: "{{ jenkins_url }}/computer/doCreateItem?name=agent1"
+#     method: POST
+    
+#     user: "{{ jenkins_user }}"
+#     password: "{{ jenkins_password }}"
+#     headers:
+#       Content-Type: "application/json"
+#     body_format: json
+#     body: |
+#       {
+#         "name": "agent1",
+#         "nodeDescription": "Agent 1 container",
+#         "numExecutors": 3,
+#         "remoteFS": "/home/jenkins",
+#         "labelString": "linux docker",
+#         "mode": "NORMAL",
+#         "retentionStrategy": {
+#           "stapler-class": "hudson.slaves.RetentionStrategy$Always"
+#         },
+#         "launcher": {
+#           "stapler-class": "hudson.slaves.CommandLauncher",
+#           "command": "ssh -i /home/jenkins/.ssh/jenkins_agent_key -o StrictHostKeyChecking=no jenkins@{{ agent1_ip.stdout }} java -jar /home/jenkins/agent.jar"
+#         }
+#       }
+#     status_code: [200, 201]
+#   register: agent1_creation_response
+
+# - name: Fetch Jenkins crumb and save to cookies.txt
+#   ansible.builtin.shell: |
+#     curl -u "admin:admin" \
+#     "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+#     --cookie-jar cookies.txt
+#   register: crumb_output
+
+# - name: Set CRUMB fact
+#   ansible.builtin.set_fact:
+#     CRUMB: "{{ crumb_output.stdout }}"
+
+# - name: Register credswss agent
+#   ansible.builtin.shell: |
+#     curl -X POST \
+#     https://jenkins.local/job/TEAM-FOLDER/credentials/store/folder/domain/_/createCredentials \
+#     -F secret=@/Users/maksym/secret \
+#     -F 'json={"": "4", "credentials": {"file": "{{ssh_private_key_path }}", "id": "test", 
+#     "description": "HELLO-curl", "stapler-class": 
+#     "org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl", 
+#     "$class": 
+#     "org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl"}}'
+#   register: result1
+
+
+#here bring back node 1
+
+# - name: Create a new Jenkins node using CLI
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-node {{ node_name }} <<EOF
+#     <slave>
+#       <name>{{ node_name }}</name>
+#       <description>{{ node_description }}</description>
+#       <remoteFS>{{ remote_root_directory }}</remoteFS>
+#       <numExecutors>{{ executors }}</numExecutors>
+#       <mode>{{ node_mode }}</mode>
+#       <label>{{ labels }}</label>
+#       <launcher class="hudson.plugins.sshslaves.SSHLauncher">
+#         <host>{{ agent1_ip.stdout  }}</host>
+#         <port>{{ ssh_port }}</port>
+#         <credentialsId>{{ credentials_id }}</credentialsId>
+#       </launcher>
+#       <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+#     </slave>
+#     EOF
+#   args:
+#     executable: /bin/bash
+#   register: create_node_result
+
+# - name: Show result of node creation
+#   debug:
+#     var: create_node_result.stdout_lines
+
+
+# - name: Launch the new Jenkins node
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} connect-node {{ node_name }}
+#   args:
+#     executable: /bin/bash
+#   register: launch_node_result
+
+# - name: Show result of node launch
+#   debug:
+#     var: launch_node_result.stdout_lines
+
+
+
+
+- name: Create a new Jenkins node2 using CLI
+  shell: |
+    java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-node {{ node_name2 }} <<EOF
+    <slave>
+      <name>{{ node_name2 }}</name>
+      <description>{{ node_description }}</description>
+      <remoteFS>{{ remote_root_directory }}</remoteFS>
+      <numExecutors>{{ executors }}</numExecutors>
+      <mode>{{ node_mode }}</mode>
+      <label>{{ labels }}</label>
+      <launcher class="hudson.plugins.sshslaves.SSHLauncher">
+        <host>{{ agent2_ip.stdout  }}</host>
+        <port>{{ ssh_port }}</port>
+        <credentialsId>{{ credentials_id }}</credentialsId>
+      </launcher>
+      <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+    </slave>
+    EOF
+  args:
+    executable: /bin/bash
+  register: create_node_result2
+
+- name: Show result of node2 creation
+  debug:
+    var: create_node_result2.stdout_lines
+
+
+- name: Launch the new Jenkins node2
+  shell: |
+    java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} connect-node {{ node_name2 }}
+  args:
+    executable: /bin/bash
+  register: launch_node_result2
+
+- name: Show result of node2 launch
+  debug:
+    var: launch_node_result2.stdout_lines
+
+# - name: Register Jenkins agent
+#   shell: | 
+#     curl -X POST "http://localhost:8080/computer/doCreateItem?name=agent" \
+#     -u "admin:admin" \
+#     -b cookies.txt \
+#     -H  "{{ CRUMB }}" \
+#     -d '{
+#       "name": "agent1",
+#       "nodeDescription": "Agent agent1 configured by Ansible",
+#       "numExecutors": 3,
+#       "remoteFS": "/home/jenkins",
+#       "labelString": "worker",
+#       "mode": "NORMAL",
+#       "type": "hudson.slaves.DumbSlave",
+#       "retentionStrategy": {
+#         "stapler-class": "hudson.slaves.RetentionStrategy$Always"},
+#       "launcher": {
+#         "stapler-class": "hudson.plugins.sshslaves.SSHLauncher",
+#         "host": "agent1",
+#         "port": 22,
+#         "credentialsId": "643c4e5c-a917-4b87-b482-dcf6b1e19017",
+#         "jvmOptions": "",
+#         "javaPath": "",
+#         "launchTimeoutSeconds": 60,
+#         "maxNumRetries": 3,
+#         "retryWaitTime": 15}
+#       }'
+#   register:   result1
+
+# - name: print
+#   debug:
+#     msg: "{{ result1 }}"
+
+# - name: Register Jenkins agent
+#   ansible.builtin.uri:
+#     url: "http://localhost:8080/computer/doCreateItem?name=agent"
+#     method: POST
+#     user: "admin"
+#     password: "admin"
+#     force_basic_auth: yes
+#     follow_redirects: all
+#     headers:
+#       Content-Type: "application/x-www-form-urlencoded"
+#       Jenkins-Crumb: "{{ CRUMB }}"
+    
+#     body_format: json
+#     body: |
+#       {
+#         "name": "agent1",
+#         "nodeDescription": "Agent agent1 configured by Ansible",
+#         "numExecutors": 3,
+#         "remoteFS": "/home/jenkins",
+#         "labelString": "worker",
+#         "mode": "NORMAL",
+#         "type": "hudson.slaves.DumbSlave",
+#         "retentionStrategy": {
+#           "stapler-class": "hudson.slaves.RetentionStrategy$Always"
+#         },
+#         "launcher": {
+#           "stapler-class": "hudson.plugins.sshslaves.SSHLauncher",
+#           "host": "agent1",
+#           "port": 22,
+#           "credentialsId": "643c4e5c-a917-4b87-b482-dcf6b1e19017",
+#           "jvmOptions": "",
+#           "javaPath": "",
+#           "launchTimeoutSeconds": 60,
+#           "maxNumRetries": 3,
+#           "retryWaitTime": 15
+#         }
+#       }
+#     status_code: [200, 201]

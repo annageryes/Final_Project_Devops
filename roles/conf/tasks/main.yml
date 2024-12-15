@@ -1,0 +1,31 @@
+---
+# tasks file for conf
+
+- name: Fetch Jenkins crumb and save to cookies.txt
+  ansible.builtin.shell: |
+    curl -u "admin:admin" \
+    "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+    --cookie-jar cookies.txt
+  register: crumb_output
+
+- name: Set CRUMB fact
+  ansible.builtin.set_fact:
+    CRUMB: "{{ crumb_output.stdout }}"
+
+- name: Generate new Jenkins API token
+  ansible.builtin.shell: |
+    curl 'http://admin:admin@localhost:8080/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken' \
+    --data 'newTokenName=1kb-token' \
+    -b cookies.txt \
+    -H "{{ CRUMB }}"
+  register: api_token_output
+
+- name: Set API token fact
+  ansible.builtin.set_fact:
+    api_token: "{{ api_token_output.stdout }}"
+
+- name: debug
+  debug:
+    var: api_token.data.tokenValue
+
+
