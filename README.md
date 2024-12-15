@@ -4,16 +4,11 @@ Jenkins docker compose file (and instructions) to configure your jenkins control
 
 ## Configuring Jenkins
 
-1. Create the **jenkins_home** folder in your local environment
-
-   ```
-   mkdir jenkins_sandbox_home
-   ```
 
 2. Create a file named **.env** and add the following:
 
    ```yml
-   JENKINS_HOME_PATH=/home/user/jenkins_sandbox_home # your local jenkins_home path.
+    JENKINS_HOME_PATH=/home/user/project/.env # your absolute path for .env file
 
    ```
 
@@ -32,3 +27,26 @@ Jenkins docker compose file (and instructions) to configure your jenkins control
 5. Go to <http://localhost:8080/> and enter the password.
 
 6. Select **Install Suggested Plugins**, create the **admin** user and password, and leave the Jenkins URL <http://localhost:8080/>.
+
+
+
+
+
+ansible playbook for deploy:
+- bring up docker compose file
+- configure agents
+- copy keys
+
+
+python or bash  to install ansible docker compose and trigger the playbook
+
+
+
+CRUMB=$(curl "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+    --cookie-jar cookies.txt \
+    --user 'admin')
+
+    curl 'http://admin:admin@localhost:8080/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken' --data 'newTokenName=kb-token' -b cookies.txt -H $CRUMB
+
+    {"status":"ok","data":{"tokenName":"kb-token","tokenUuid":"dd49a44c-ba30-4d91-a120-1b3685b385bc","tokenValue":"11c71171c7374c23b6bfb64d915776331e"}}
+

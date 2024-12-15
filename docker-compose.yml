@@ -13,14 +13,14 @@ services:
       - ${JENKINS_HOME_PATH}:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
   agent1:
-    image: jenkins/ssh-agent:jdk11
+    image: jenkins/ssh-agent:jdk17
     container_name: jenkins_sandbox_agent1
     privileged: true
     user: root
     expose:
       - 22
   agent2:
-    image: jenkins/ssh-agent:jdk11
+    image: jenkins/ssh-agent:jdk17
     container_name: jenkins_sandbox_agent2
     privileged: true
     user: root
