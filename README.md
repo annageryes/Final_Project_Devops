@@ -42,11 +42,12 @@ python or bash  to install ansible docker compose and trigger the playbook
 
 
 
-CRUMB=$(curl "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
-    --cookie-jar cookies.txt \
-    --user 'admin')
+ full_crumb=$(curl -u "admin:admin" --cookie-jar "$cookie_jar" $url/crumbIssuer/api/xml?xpath=concat\(//crumbRequestField,%22:%22,//crumb\))
 
-    curl 'http://admin:admin@localhost:8080/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken' --data 'newTokenName=kb-token' -b cookies.txt -H $CRUMB
+
+CRUMB=$(curl -u "admin:admin"  "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+    --cookie-jar cookies.txt)
+curl 'http://admin:admin@localhost:8080/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken' --data 'newTokenName=1kb-token' -b cookies.txt -H $full_crumb
 
     {"status":"ok","data":{"tokenName":"kb-token","tokenUuid":"dd49a44c-ba30-4d91-a120-1b3685b385bc","tokenValue":"11c71171c7374c23b6bfb64d915776331e"}}
 

@@ -63,76 +63,141 @@
 #   register: install_plugin_result
 
 
-- name: Backup Jenkins credentials file in the container
-  shell: |
-    docker exec -i jenkins_sandbox /bin/bash -c "cp /var/jenkins_home/credentials.xml /var/jenkins_home/credentials.xml.bak"
+# - name: Backup Jenkins credentials file in the container
+#   shell: |
+#     docker exec -i jenkins_sandbox /bin/bash -c "cp /var/jenkins_home/credentials.xml /var/jenkins_home/credentials.xml.bak"
 
-- name: Read the private key file
-  shell: cat "{{ ssh_private_key_path }}"
-  register: private_key
+# - name: Read the private key file
+#   shell: cat "{{ ssh_private_key_path }}"
+#   register: private_key
 
-- name: Remove the last three lines from credentials.xml
-  shell: |
-    docker exec -i jenkins_sandbox /bin/bash -c "sed -i '$d' /var/jenkins_home/credentials.xml && \
-    sed -i '$d' /var/jenkins_home/credentials.xml && \
-    sed -i '$d' /var/jenkins_home/credentials.xml && \
-    sed -i '$d' /var/jenkins_home/credentials.xml"
+# - name: Remove the last three lines from credentials.xml
+#   shell: |
+#     docker exec -i jenkins_sandbox /bin/bash -c "sed -i '$d' /var/jenkins_home/credentials.xml && \
+#     sed -i '$d' /var/jenkins_home/credentials.xml && \
+#     sed -i '$d' /var/jenkins_home/credentials.xml && \
+#     sed -i '$d' /var/jenkins_home/credentials.xml"
 
-- name: Append the new credentials to credentials.xml
-  shell: |
-    docker exec -i jenkins_sandbox /bin/bash -c "cat >> /var/jenkins_home/credentials.xml <<EOL
-            <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin=\"ssh-credentials@349.vb_8b_6b_9709f5b_\">
-              <scope>SYSTEM</scope>
-              <id>{{ credentials_id }}</id>
-              <description>Ansible-created SSH key</description>
-              <username>{{ ssh_user }}</username>
-              <usernameSecret>false</usernameSecret>
-              <privateKeySource class=\"com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource\">
-                <privateKey>{{ private_key.stdout }}</privateKey>
-              </privateKeySource>
-            </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
-          </java.util.concurrent.CopyOnWriteArrayList>
-        </entry>
-      </domainCredentialsMap>
-    </com.cloudbees.plugins.credentials.SystemCredentialsProvider>
-    EOL"
+# - name: Append the new credentials to credentials.xml
+#   shell: |
+#     docker exec -i jenkins_sandbox /bin/bash -c "cat >> /var/jenkins_home/credentials.xml <<EOL
+#             <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin=\"ssh-credentials@349.vb_8b_6b_9709f5b_\">
+#               <scope>SYSTEM</scope>
+#               <id>{{ credentials_id }}</id>
+#               <description>Ansible-created SSH key</description>
+#               <username>{{ ssh_user }}</username>
+#               <usernameSecret>false</usernameSecret>
+#               <privateKeySource class=\"com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource\">
+#                 <privateKey>{{ private_key.stdout }}</privateKey>
+#               </privateKeySource>
+#             </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+#           </java.util.concurrent.CopyOnWriteArrayList>
+#         </entry>
+#       </domainCredentialsMap>
+#     </com.cloudbees.plugins.credentials.SystemCredentialsProvider>
+#     EOL"
 
-- name: Ensure proper permissions for Jenkins credentials file in the container
-  shell: |
-    docker exec -i jenkins_sandbox /bin/bash -c "chmod 644 /var/jenkins_home/credentials.xml && \
-    chown jenkins:jenkins /var/jenkins_home/credentials.xml"
+# - name: Ensure proper permissions for Jenkins credentials file in the container
+#   shell: |
+#     docker exec -i jenkins_sandbox /bin/bash -c "chmod 644 /var/jenkins_home/credentials.xml && \
+#     chown jenkins:jenkins /var/jenkins_home/credentials.xml"
 
-- name: Restart Jenkins container
-  shell: docker restart jenkins_sandbox
+# - name: Restart Jenkins container
+#   shell: docker restart jenkins_sandbox
 
 # handlers:
 #   - name: Restart Jenkins
 #     service:
 #       name: jenkins
 #       state: restarted
-# - name: read the file
-#   shell: cat "{{ ssh_private_key_path }}"
-#   register: private_key
+- name: read the file
+  shell: cat "{{ ssh_private_key_path }}"
+  register: private_key
 
 
 # - name: debug
 #   debug:
 #     var : private_key.stdout
 
+- name: Decode private key content
+  set_fact:
+    private_key_decoded: "{{ private_key.stdout }}"
 
+- name: Create Groovy script
+  copy:
+    dest: /tmp/add_jenkins_credential.groovy
+    content: |
+      import com.cloudbees.plugins.credentials.*
+      import com.cloudbees.plugins.credentials.domains.*
+      import com.cloudbees.plugins.credentials.impl.*
+      import jenkins.model.*
+
+      def store = Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+
+      def privateKey = new BasicSSHUserPrivateKey(
+          CredentialsScope.GLOBAL,
+          "{{ credentials_id }}",
+          "{{ ssh_user }}",
+          new BasicSSHUserPrivateKey.DirectEntryPrivateKeySource(
+              """{{ private_key_decoded | quote }}"""
+          ),
+          null,
+          "{{ credential_description }}"
+      )
+
+      store.addCredentials(Domain.global(), privateKey)
+      println "Credential added successfully!"
+
+- name: Set proper permissions for Groovy script
+  ansible.builtin.file:
+    path: /tmp/add_jenkins_credential.groovy
+    mode: '0644'
+
+# - name: Execute Groovy script via Jenkins Script Console
+#   uri:
+#     url: "{{ jenkins_url }}/scriptText"
+#     method: POST
+#     user: "{{ jenkins_user }}"
+#     password: "{{ jenkins_api_token }}"
+#     headers:
+#       Content-Type: application/x-www-form-urlencoded
+#     body: "script=$(cat /tmp/add_jenkins_credential.groovy)"
+#     status_code: 200
+#   register: script_output
+- name: Copy Groovy script to Jenkins container
+  command: >
+    docker cp /tmp/add_jenkins_credential.groovy jenkins_sandbox:/tmp/add_jenkins_credential.groovy
+
+- name: Copy Jenkins CLI to container
+  command: >
+    docker cp  /tmp/jenkins-cli.jar jenkins_sandbox:/tmp/jenkins-cli.jar
+
+- name: Execute Groovy script in Jenkins container
+  command: >
+    docker exec jenkins_sandbox
+    java -jar /tmp/jenkins-cli.jar
+    -s http://localhost:8080
+    -auth {{ jenkins_user }}:{{ jenkins_api_token }}
+    groovy /tmp/add_jenkins_credential.groovy
+  register: groovy_output
+  failed_when: "'Exception' in groovy_output.stdout or 'ERROR' in groovy_output.stdout"
+
+- name: Debug Groovy script output
+  debug:
+    var: groovy_output.stdout
 # - name: Create SSH credentials in Jenkins
-#   shell: |
-#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-credentials-by-xml system::system::jenkins _ <<EOF
-#     <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
-#       <scope>SYSTEM</scope>
-#       <id>{{ credentials_id }}</id>
-#       <username>{{ ssh_user }}</username>
-#       <privateKey>{{ private_key.stdout | regex_replace('^(.*)$', '          \\1') }}</privateKey>
-#     </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
-#     EOF
-#   args:
-#     executable: /bin/bash
-#   register: create_credentials_result
+  # shell: |
+  #   java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-credentials-by-xml system::system::jenkins _ <<EOF
+  #   <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+  #     <scope>SYSTEM</scope>
+  #     <id>{{ credentials_id }}</id>
+  #     <username>{{ ssh_user }}</username>
+  #     <privateKey>{{ private_key_content }}</privateKey>
+  #   </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+  #   EOF
+  # args:
+  #   executable: /bin/bash
+  # register: create_credentials_result
 
 
         # <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin="ssh-credentials@349.vb_8b_6b_9709f5b_">
@@ -347,16 +412,16 @@
 #     status_code: [200, 201]
 #   register: agent1_creation_response
 
-# - name: Fetch Jenkins crumb and save to cookies.txt
-#   ansible.builtin.shell: |
-#     curl -u "admin:admin" \
-#     "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
-#     --cookie-jar cookies.txt
-#   register: crumb_output
+- name: Fetch Jenkins crumb and save to cookies.txt
+  ansible.builtin.shell: |
+    curl -u "admin:admin" \
+    "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+    --cookie-jar cookies.txt
+  register: crumb_output
 
-# - name: Set CRUMB fact
-#   ansible.builtin.set_fact:
-#     CRUMB: "{{ crumb_output.stdout }}"
+- name: Set CRUMB fact
+  ansible.builtin.set_fact:
+    CRUMB: "{{ crumb_output.stdout }}"
 
 # - name: Register credswss agent
 #   ansible.builtin.shell: |

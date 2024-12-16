@@ -21,6 +21,7 @@
     - ssh_host: "agent-hostname"
     - ssh_port: 22
     - credentials_id: "ansible-creds7"
+    - credential_description: "test"
   roles:
     # - { role: bring_up }
     # - { role: unlock_jenkins }

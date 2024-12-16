@@ -27,5 +27,20 @@
 - name: debug
   debug:
     var: api_token.data.tokenValue
+- name: debug
+  debug:
+    var: api_token.data.tokenValue
 
+- name: Download Jenkins CLI
+  get_url:
+    url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+    dest: "/tmp/jenkins-cli.jar"
+
+- name: Debug the generated token
+  ansible.builtin.debug:
+    msg: "token: {{  api_token.data.tokenValue }}"
+
+- name: Set token fact
+  ansible.builtin.set_fact:
+    jenkins_api_token: "{{ api_token.data.tokenValue }}"
 
