@@ -3,8 +3,8 @@
 
 - name: Fetch Jenkins crumb and save to cookies.txt
   ansible.builtin.shell: |
-    curl -u "admin:admin" \
-    "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+    curl -u "{{ jenkins_user }}:{{ jenkins_password }}" \
+    "{{ jenkins_url }}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
     --cookie-jar cookies.txt
   register: crumb_output
 
@@ -12,10 +12,11 @@
   ansible.builtin.set_fact:
     CRUMB: "{{ crumb_output.stdout }}"
 
+  register: api_token_output
 - name: Generate new Jenkins API token
   ansible.builtin.shell: |
-    curl 'http://admin:admin@localhost:8080/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken' \
-    --data 'newTokenName=1kb-token' \
+    curl "http://{{ jenkins_user }}:{{ jenkins_password }}@{{ jenkins_url_stripped }}/user/{{ jenkins_user }}/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken" \
+    --data "newTokenName=ansibletoken" \
     -b cookies.txt \
     -H "{{ CRUMB }}"
   register: api_token_output
@@ -23,18 +24,6 @@
 - name: Set API token fact
   ansible.builtin.set_fact:
     api_token: "{{ api_token_output.stdout }}"
-
-- name: debug
-  debug:
-    var: api_token.data.tokenValue
-- name: debug
-  debug:
-    var: api_token.data.tokenValue
-
-- name: Download Jenkins CLI
-  get_url:
-    url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
-    dest: "/tmp/jenkins-cli.jar"
 
 - name: Debug the generated token
   ansible.builtin.debug:

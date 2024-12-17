@@ -43,30 +43,27 @@
       }
     user: "{{ jenkins_user }}"
     password: "{{ jenkins_password }}"
+  ignore_errors: yes 
 
 
 - name: install recomended plugin
-  jenkins_plugin:
+  community.general.jenkins_plugin:
     name: "{{ item }}"
-    state: latest
+    url: "{{ jenkins_url}}"
     url_username: "{{ jenkins_user }}"
     url_password: "{{ jenkins_password }}"
   with_items:
-    - 'cloudbees-folder'
-    - 'antisamy-markup-formatter'
-    - 'build-timeout'
-    - 'timestamper'
-    - 'ws-cleanup'
-    - 'ant'
-    - 'gradle'
-    - 'workflow-aggregator'
-    - 'github-branch-source'
-    - 'pipeline-github-lib'
-    - 'pipeline-stage-view'
-    - 'git'
-    - 'ssh-slaves'
-    - 'matrix-auth'
-    - 'pam-auth'
-    - 'ldap'
-    - 'email-ext'
-    - 'mailer'
+    - "pipeline"
+    - "docker-plugin"
+    - "ansible"
+    - "docker-workflow"
+    - "job-dsl"
+    - "rebuild"
+    - "configuration-as-code"
+    - "pipeline-utility-steps"
+    - "role-strategy"
+    - "thinBackup"
+    - "backup"
+    - "ssh"
+    
+  ignore_errors: yes 

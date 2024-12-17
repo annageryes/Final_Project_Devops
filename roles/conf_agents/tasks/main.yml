@@ -1,26 +1,9 @@
 ---
 # tasks file for conf_agents
-- name: debug
-  debug:
-    var: api_token.data.tokenValue
-
 - name: Download Jenkins CLI
   get_url:
     url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
     dest: "/tmp/jenkins-cli.jar"
-
-- name: Debug the generated token
-  ansible.builtin.debug:
-    msg: "token: {{  api_token.data.tokenValue }}"
-
-- name: Set token fact
-  ansible.builtin.set_fact:
-    jenkins_api_token: "{{ api_token.data.tokenValue }}"
-# - name: Create a directory
-#   ansible.builtin.file:
-#     path: "{{ ssh_private_key_path }}"
-#     state: directory
-#     mode: 0755
     
 - name: Generate SSH key pair
   ansible.builtin.openssh_keypair:
@@ -414,8 +397,8 @@
 
 - name: Fetch Jenkins crumb and save to cookies.txt
   ansible.builtin.shell: |
-    curl -u "admin:admin" \
-    "http://localhost:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
+    curl -u "{{ jenkins_user }}:{{ jenkins_user }}" \
+    "{{ jenkins_url }}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)" \
     --cookie-jar cookies.txt
   register: crumb_output
 
