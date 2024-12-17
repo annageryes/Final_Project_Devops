@@ -1,0 +1,37 @@
+---
+-
+  hosts: localhost
+  connection: local
+  become_user: root
+  become_method: sudo
+  become: yes
+  vars:
+    - jenkins_url: "http://localhost:8080"
+    - jenkins_url_stripped: "localhost:8080"
+    - ssh_user : "jenkins"
+    - ssh_pass: "jenkins"
+    - container_master_name: "jenkins_sandbox"
+    - container_agent1_name: "jenkins_sandbox_agent1"
+    - container_agent2_name: "jenkins_sandbox_agent2"
+    - ssh_private_key_path: "/tmp/agent.rsa"
+    - jenkins_user: "admin"
+    - jenkins_password: "admin"
+    - node_name1: "agent1"
+    - node_name2: "agent2"
+    - node_description: "This is a new Jenkins agent node."
+    - remote_root_directory: "/home/jenkins"
+    - executors: 3
+    - labels: "workers"
+    - node_mode: "NORMAL" # NORMAL or EXCLUSIVE
+    - ssh_port: 22
+    - credentials_id: "ansible-creds"
+    - credential_description: "credintials created by ansible"
+  roles:
+    # - { role: bring_up }
+    # - { role: unlock_jenkins }
+    - { role: conf }
+    - { role: conf_agents }
+  tasks:
+    - name: Finish Line
+      debug:
+        msg: "Your Jenkins Master and agents are ready to go!"

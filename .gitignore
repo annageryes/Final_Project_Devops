@@ -1,1 +1,5 @@
-*.env
+jenkins_sandbox*
+.env*
+cookies*
+samba-data*
+

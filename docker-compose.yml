@@ -10,21 +10,44 @@ services:
       - 8080:8080
       - 50000:50000
     volumes:
+      - ./samba-data:/data
       - ${JENKINS_HOME_PATH}:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - default
   agent1:
-    image: jenkins/ssh-agent:jdk11
+    image: jenkins/ssh-agent:jdk17
     container_name: jenkins_sandbox_agent1
     privileged: true
     user: root
     expose:
       - 22
+    volumes:
+      - ./samba-data:/data
+    networks:
+      - default
   agent2:
-    image: jenkins/ssh-agent:jdk11
+    image: jenkins/ssh-agent:jdk17
     container_name: jenkins_sandbox_agent2
     privileged: true
     user: root
     expose:
       - 22
+    volumes:
+      - ./samba-data:/data
+    networks:
+      - default
+  samba:
+    image: dperson/samba
+    ports:
+      - "139:139"
+      - "445:445"
+    command: "-u '${SAMBA_USER};${SAMBA_PASS}' -s 'shared;/data;yes;yes;yes;admin;admin'"
+    volumes:
+      - ./samba-data:/data
     environment:
-      - JENKINS_AGENT_SSH_PUBKEY=${JENKINS_AGENT_SSH_PUBLIC_KEY}
+      SAMBA_USER: ${SAMBA_USER}
+      SAMBA_PASS: ${SAMBA_PASS}
+    networks:
+      - default
+

@@ -1,0 +1,11 @@
+---
+# tasks file for bringing up the docker compose file as detached and displaying the output
+
+- name: Run docker-compose up
+  ansible.builtin.shell:
+    cmd: docker-compose up -d
+  register: compose_up_output
+
+- name: Print docker-compose output
+  ansible.builtin.debug:
+    var: compose_up_output.stdout

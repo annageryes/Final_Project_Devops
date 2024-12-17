@@ -1,0 +1,162 @@
+---
+# tasks file for conf_agents
+- name: Download Jenkins CLI
+  get_url:
+    url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+    dest: "/tmp/jenkins-cli.jar"
+
+- name: Generate SSH key pair
+  ansible.builtin.openssh_keypair:
+    path: "{{ ssh_private_key_path }}"
+    type: rsa
+    size: 2048
+  register: ssh_keypair
+
+- name: Copy the public key to the agent1 container
+  ansible.builtin.command:
+    cmd: "docker exec -i {{ container_agent1_name }} /bin/bash -c 'mkdir -p /home/{{ ssh_user }}/.ssh && echo {{ ssh_keypair.public_key }} > /home/{{ ssh_user }}/.ssh/authorized_keys && chmod 600 /home/{{ ssh_user }}/.ssh/authorized_keys && chown -R {{ ssh_user }}:{{ ssh_user }} /home/{{ ssh_user }}/.ssh'"
+  register: pubkey_copy
+
+- name: Verify public key was copied
+  ansible.builtin.command:
+    cmd: "docker exec -i {{ container_agent1_name }} /bin/bash -c 'cat /home/{{ ssh_user }}/.ssh/authorized_keys'"
+  register: pubkey_verify
+- name: Debug public key on agent
+  ansible.builtin.debug:
+    var: pubkey_verify.stdout
+
+- name: Copy the public key to the agent2 container
+  ansible.builtin.command:
+    cmd: "docker exec -i {{ container_agent2_name }} /bin/bash -c 'mkdir -p /home/{{ ssh_user }}/.ssh && echo {{ ssh_keypair.public_key }} > /home/{{ ssh_user }}/.ssh/authorized_keys && chmod 600 /home/{{ ssh_user }}/.ssh/authorized_keys && chown -R {{ ssh_user }}:{{ ssh_user }} /home/{{ ssh_user }}/.ssh'"
+  register: pubkey_copy
+
+- name: Verify public key was copied
+  ansible.builtin.command:
+    cmd: "docker exec -i {{ container_agent2_name }} /bin/bash -c 'cat /home/{{ ssh_user }}/.ssh/authorized_keys'"
+  register: pubkey_verify
+- name: Debug public key on agent
+  ansible.builtin.debug:
+    var: pubkey_verify.stdout
+
+
+- name: Get the IP address of a Docker container
+  ansible.builtin.command:
+      cmd: "docker inspect -f '{% raw %}{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' {{ container_agent1_name }} "
+  register: agent1_ip
+
+- name: Get IP address of Jenkins agent2 container
+  ansible.builtin.command:
+      cmd: "docker inspect -f '{% raw %}{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' {{ container_agent2_name }} "
+  register: agent2_ip
+
+- name: Debug IP addresses of agents
+  ansible.builtin.debug:
+    msg:
+      - "Agent 1 IP: {{ agent1_ip.stdout }}"
+      - "Agent 2 IP: {{ agent2_ip.stdout }}"
+
+
+- name: read the file
+  shell: cat "{{ ssh_private_key_path }}"
+  register: private_key
+
+- name: Decode private key content
+  set_fact:
+    private_key_decoded: "{{ private_key.stdout }}"
+- name: print key
+  debug:
+   var: private_key_decoded
+
+- name: Create SSH credentials in Jenkins
+  shell: |
+    java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-credentials-by-xml system::system::jenkins _ <<EOF
+    <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+      <scope>SYSTEM</scope>
+      <id>{{ credentials_id }}</id>
+      <username>{{ ssh_user }}</username>
+      <privateKey>{{ private_key_decoded }}</privateKey>
+    </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>
+    EOF
+  args:
+    executable: /bin/bash
+  register: create_credentials_result
+
+
+
+
+- name: Create a new Jenkins node1 using CLI
+  shell: |
+    java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-node {{ node_name1 }} <<EOF
+    <slave>
+      <name>{{ node_name1 }}</name>
+      <description>{{ node_description }}</description>
+      <remoteFS>{{ remote_root_directory }}</remoteFS>
+      <numExecutors>{{ executors }}</numExecutors>
+      <mode>{{ node_mode }}</mode>
+      <label>{{ labels }}</label>
+      <launcher class="hudson.plugins.sshslaves.SSHLauncher">
+        <host>{{ agent1_ip.stdout  }}</host>
+        <port>{{ ssh_port }}</port>
+        <credentialsId>{{ credentials_id }}</credentialsId>
+      </launcher>
+      <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+    </slave>
+    EOF
+  args:
+    executable: /bin/bash
+  register: create_node_result
+
+- name: Show result of node creation
+  debug:
+    var: create_node_result.stdout_lines
+
+
+# - name: Launch the new Jenkins node1
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} connect-node {{ node_name1 }}
+#   args:
+#     executable: /bin/bash
+#   register: launch_node_result
+
+# - name: Show result of node launch
+#   debug:
+#     var: launch_node_result.stdout_lines
+
+
+- name: Create a new Jenkins node2 using CLI
+  shell: |
+    java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} create-node {{ node_name2 }} <<EOF
+    <slave>
+      <name>{{ node_name2 }}</name>
+      <description>{{ node_description }}</description>
+      <remoteFS>{{ remote_root_directory }}</remoteFS>
+      <numExecutors>{{ executors }}</numExecutors>
+      <mode>{{ node_mode }}</mode>
+      <label>{{ labels }}</label>
+      <launcher class="hudson.plugins.sshslaves.SSHLauncher">
+        <host>{{ agent2_ip.stdout  }}</host>
+        <port>{{ ssh_port }}</port>
+        <credentialsId>{{ credentials_id }}</credentialsId>
+      </launcher>
+      <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+    </slave>
+    EOF
+  args:
+    executable: /bin/bash
+  register: create_node_result2
+
+- name: Show result of node2 creation
+  debug:
+    var: create_node_result2.stdout_lines
+
+
+# - name: Launch the new Jenkins node2
+#   shell: |
+#     java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth {{ jenkins_user }}:{{ jenkins_api_token }} connect-node {{ node_name2 }}
+#   args:
+#     executable: /bin/bash
+#   register: launch_node_result2
+
+# - name: Show result of node2 launch
+#   debug:
+#     var: launch_node_result2.stdout_lines
