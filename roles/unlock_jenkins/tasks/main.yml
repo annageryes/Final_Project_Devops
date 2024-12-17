@@ -15,14 +15,14 @@
   register: adminpwd
 
 
-- name: unlock and add admin user
+- name: unlock and add provided user
   jenkins_script:
     script: |
       import jenkins.model.*
       import hudson.security.*
       def instance = Jenkins.getInstance()
       def hudsonRealm = new HudsonPrivateSecurityRealm(false)
-      hudsonRealm.createAccount('admin', 'admin')
+      hudsonRealm.createAccount( {{ jenkins_user }},{{ jenkins_password }})
       instance.setSecurityRealm(hudsonRealm)
       def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
       strategy.setAllowAnonymousRead(false)
@@ -70,91 +70,3 @@
     - 'ldap'
     - 'email-ext'
     - 'mailer'
-    
-
-# tasks file for unlock_jenkins
-# - 
-#   name: Unlock Jenkins
-#   hosts: jenkins_servers
-#   become: true
-#   vars:
-#     jenkins_url: "http://localhost:8080"
-#     unlock_key_file: "/var/lib/jenkins/secrets/initialAdminPassword"
-#   tasks:
-# - name: Fetch Jenkins administrative password from path
-#   become: true
-#   ansible.builtin.command:
-#     cmd: cat jenkins_sandbox_home/secrets/initialAdminPassword
-#   register: admin_password
-
-# - name: Decode the unlock key
-#   set_fact:
-#     decoded_unlock_key: "{{ admin_password.stdout | b64decode }}"
-# - name: Debug unlock pass
-#   debug:
-#     var:  admin_password.stdout
-
-# - name: Unlock Jenkins
-#   uri:
-#     url: "http://localhost:8080/j_acegi_security_check"
-#     method: POST
-#     headers:
-#       Content-Type: "application/x-www-form-urlencoded"
-#     body: "j_password={{ admin_password.stdout }}"
-#     status_code: 200
-#   register: unlock_response
-
-# - name: Debug unlock response
-#   debug:
-#     var: unlock_response
-
-# - name: Wait for Jenkins to be available
-#   ansible.builtin.uri:
-#     url: "http://localhost:8080/"
-#     status_code: 403
-#     timeout: 60
-#   register: jenkins_status
-#   until: jenkins_status is success
-#   retries: 5
-#   delay: 10
-
-# - name: Fetch Jenkins administrative password from path
-#   become: true
-#   ansible.builtin.command:
-#     cmd: cat jenkins_sandbox_home/secrets/initialAdminPassword
-#   register: admin_password
-
-# - name: Fail if administrative password is not found
-#   ansible.builtin.fail:
-#     msg: "Could not retrieve the Jenkins administrative password."
-#   when: admin_password is undefined
-# - name: debug
-#   debug:
-#     msg: "{{ admin_password.stdout }}"
-
-# - name: Unlock Jenkins server
-#   ansible.builtin.uri:
-#     url: "http://localhost:8080/j_acegi_security_check"
-#     method: POST
-#     body: "j_username=admin&j_password=639154e2d1134f559ca7e648f814402b"
-#     headers:
-#       Jenkins-Crumb: "419beb8fd68fda617eeda92941f99e0cafa543b93c93c216ef5793c867170dcb"
-#       Content-Type: "application/x-www-form-urlencoded"
-#     status_code: 200
-# - name: Unlock Jenkins using the unlock key
-#   ansible.builtin.uri:
-#     url: "http://localhost:8080/j_acegi_security_check"
-#     method: POST
-#     body:
-#       securityToken: "{{ admin_password.stdout }}"
-#     body_format: json
-#     headers:
-#       Content-Type: "application/json"
-#   register: unlock_response
-
-# - name: Verify Jenkins unlock response
-#   debug:
-#     msg: "Unlock response: {{ unlock_response }}"
-
-# curl 'admin:a84b61b7f2704b18ada3cbd32c3ad39e@127.0.0.1:8080/j_acegi_security_check -X POST -d 
-# {"from":"","j_username":"admin","j_password":"a84b61b7f2704b18ada3cbd32c3ad39e","Jenkins-Crumb":"90b3cf29bdf16c9790227a3f8a8674bf"}'

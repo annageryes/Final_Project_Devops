@@ -24,10 +24,10 @@
     - credential_description: "test"
   roles:
     - { role: bring_up }
-    # - { role: unlock_jenkins }
+    - { role: unlock_jenkins }
     # - { role: conf_agents }
-    - { role: conf }
-    - { role: conf_agents }
+    # - { role: conf }
+    # - { role: conf_agents }
   tasks:
     - name: test
       debug:
