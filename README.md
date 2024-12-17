@@ -96,7 +96,14 @@ Because we encountered an issue with the way the privte key is uploaded to jenki
 1. add your inventory into the hosts.txt file
 2. change the localhost and hosts connection in [main-playbook.yaml](https://github.com/annageryes/Final_Project_Devops/blob/main/main-playbook.yml)
 
-
+## Main playbook [main-playbook.yaml](https://github.com/annageryes/Final_Project_Devops/blob/main/main-playbook.yml)
+This playbook has all the vars in it, you can modify aas needed or run simply as is!
+## ROLES
+The deploymetn is dvided into four roles ,each of them has a seperate README file :
+  - bring_up----------[YAML FILE](roles/bring_up/tasks/main.yml) -- [README FILE](roles/bring_up/README.md) 
+  - unlock_jenkins----[YAML FILE](roles/unlock_jenkins/tasks/main.yml) -- [README FILE](roles/unlock_jenkins/README.md) 
+  - conf--------------[YAML FILE](roles/conf/tasks/main.yml) -- [README FILE](roles/conf/README.md) 
+  - conf_agent--------[YAML FILE](roles/conf_agents/tasks/main.yml) -- [README FILE](roles/conf_agents/README.md) 
 ## Pipelines Overview
 ### DEV/Stage/Prod Pipelines
 - Multi-stage pipelines with all the checks we used in our [previous HW](https://github.com/annageryes/pipeline_task)
@@ -117,8 +124,7 @@ attach image
 
  *we combined both actions into one pipline with condional arguments: 
  Jenkins file for Data Piplines [Jenkinsdata](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsdata)
- 
 
-attach image
 
+![Data Pipline](pipline_data.png)?raw=true "Title")
 
