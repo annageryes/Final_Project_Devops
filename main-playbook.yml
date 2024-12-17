@@ -27,8 +27,8 @@
     - credentials_id: "ansible-creds"
     - credential_description: "credintials created by ansible"
   roles:
-    # - { role: bring_up }
-    # - { role: unlock_jenkins }
+    - { role: bring_up }
+    - { role: unlock_jenkins }
     - { role: conf }
     - { role: conf_agents }
   tasks:
