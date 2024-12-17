@@ -23,7 +23,7 @@
     - credentials_id: "ansible-creds7"
     - credential_description: "test"
   roles:
-    # - { role: bring_up }
+    - { role: bring_up }
     # - { role: unlock_jenkins }
     # - { role: conf_agents }
     - { role: conf }

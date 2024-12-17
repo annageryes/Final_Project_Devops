@@ -2,7 +2,7 @@
 
 - name: Wait for Jenkins to be available
   ansible.builtin.uri:
-    url: "http://localhost:8080/"
+    url: "{{ jenkins_url }}"
     status_code: 403
     timeout: 60
   register: jenkins_status
@@ -10,8 +10,7 @@
   retries: 5
   delay: 10
 
-- name: read admin pwd
-
+- name: read the password from docker logs to unlock
   shell: cat jenkins_sandbox_home/secrets/initialAdminPassword
   register: adminpwd
 
@@ -29,7 +28,7 @@
       strategy.setAllowAnonymousRead(false)
       instance.setAuthorizationStrategy(strategy)
       instance.save()
-    user: admin
+    user: "{{ jenkins_user }}"
     password: "{{ adminpwd.stdout }}"
   ignore_errors: yes 
 
@@ -42,35 +41,35 @@
       if (!jenkins.installState.isSetupComplete()) {
         InstallState.INITIAL_SETUP_COMPLETED.initializeState()
       }
-    user: admin
-    password: admin
+    user: "{{ jenkins_user }}"
+    password: "{{ jenkins_password }}"
 
 
-# - name: install plugin
-#   jenkins_plugin:
-#     name: "{{ item }}"
-#     state: latest
-#     url_username: admin
-#     url_password: "admin"
-#   with_items:
-#     - 'cloudbees-folder'
-#     - 'antisamy-markup-formatter'
-#     - 'build-timeout'
-#     - 'timestamper'
-#     - 'ws-cleanup'
-#     - 'ant'
-#     - 'gradle'
-#     - 'workflow-aggregator'
-#     - 'github-branch-source'
-#     - 'pipeline-github-lib'
-#     - 'pipeline-stage-view'
-#     - 'git'
-#     - 'ssh-slaves'
-    # - 'matrix-auth'
-    # - 'pam-auth'
-    # - 'ldap'
-    # - 'email-ext'
-    # - 'mailer'
+- name: install recomended plugin
+  jenkins_plugin:
+    name: "{{ item }}"
+    state: latest
+    url_username: "{{ jenkins_user }}"
+    url_password: "{{ jenkins_password }}"
+  with_items:
+    - 'cloudbees-folder'
+    - 'antisamy-markup-formatter'
+    - 'build-timeout'
+    - 'timestamper'
+    - 'ws-cleanup'
+    - 'ant'
+    - 'gradle'
+    - 'workflow-aggregator'
+    - 'github-branch-source'
+    - 'pipeline-github-lib'
+    - 'pipeline-stage-view'
+    - 'git'
+    - 'ssh-slaves'
+    - 'matrix-auth'
+    - 'pam-auth'
+    - 'ldap'
+    - 'email-ext'
+    - 'mailer'
     
 
 # tasks file for unlock_jenkins
