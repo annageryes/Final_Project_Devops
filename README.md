@@ -1,7 +1,7 @@
 # CI/CD Project with Jenkins, Ansible, and Docker Compose
 
 
-### Collaborators : annageryes , nastyak6
+## Collaborators : annageryes , nastyak6
 
 ## Overview
 This project demonstrates a fully automated CI/CD pipeline leveraging Jenkins, Ansible, and Docker Compose. The system supports continuous integration, delivery, and deployment workflows with pipelines for development, staging, and production environments. Additional features include nightly builds, data management pipelines using Samba, and an artifact repository.
@@ -69,8 +69,13 @@ Run the Ansible playbook to deploy Jenkins master and worker nodes using the bas
 ./deploy_jenkins.sh
 ```
 
+### Step 4: Configure Credintials and launch agents
+Because we encountered an issue with the way the privte key is uploaded to jenkins, there is an addional step :
+1. copy the private key from /tmp/agent.rsa
+2. replace the key in the jenkins web interface Manage Jenkins -> Credintials -> ansible-creds
+3. launch both agents in the jenkins web interface Manage Jenkins 
 
-# Step 4: Configure Samba container
+### Step 5: Configure Samba container
 
 1. If you applied the last step the samba contianer should already be up
     check to see if up and healthy ```docker ps ```  or run ```docker-compose up samba```
@@ -110,9 +115,9 @@ attach image
 - *Revert Pipeline*: Automates rollback to the last known good state.
 - *Backup Pipeline*: Automates backup of critical data and artifacts.
 
- *we combined both actions into one pipline with condional arguments:
+ *we combined both actions into one pipline with condional arguments: 
  Jenkins file for Data Piplines [Jenkinsdata](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsdata)
-
+ 
 
 attach image
 
