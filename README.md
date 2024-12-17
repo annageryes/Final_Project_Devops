@@ -43,10 +43,10 @@ In this project we implemented the following tasks:
 
 ## Getting Started
 ### Step 1: Clone the Repository
-bash
+'''bash
 git clone <repository-url>
 cd <repository-folder>
-
+'''
 
 ### Step 2: Configure Environment
 
