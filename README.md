@@ -42,7 +42,7 @@ In this project we implemented the following tasks:
 ## Getting Started
 ### Step 1: Clone the Repository
 ```bash
-git clone [<repository-url>](https://github.com/annageryes/Final_Project_Devops.git)
+git clone (https://github.com/annageryes/Final_Project_Devops.git)
 ```
 
 ### Step 2: Configure Environment
