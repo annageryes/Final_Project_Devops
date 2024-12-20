@@ -25,8 +25,8 @@ In this project we implemented the following tasks:
 - Build Artifact Server
 
 ### Our Plan (TO DO LIST)
-- create another repository for tthe application : [DUMMY_APP](https://github.com/nastyak6/dummy_func/)
-- bring up jenkins master contianer with dockr compose
+- create another repository for the application : [DUMMY_APP](https://github.com/nastyak6/dummy_func/)
+- bring up jenkins master contianer with docker compose
 - configure everything 
 - bring up two agents as well
 - add needed configurations and credintials
