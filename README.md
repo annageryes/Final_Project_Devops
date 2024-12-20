@@ -1,8 +1,6 @@
 # CI/CD Project with Jenkins, Ansible, and Docker Compose
 
 
-## Collaborators : annageryes , nastyak6
-
 ## Overview
 This project demonstrates a fully automated CI/CD pipeline leveraging Jenkins, Ansible, and Docker Compose. The system supports continuous integration, delivery, and deployment workflows with pipelines for development, staging, and production environments. Additional features include nightly builds, data management pipelines using Samba, and an artifact repository.
 This Project is Part of the Devops Course Final assignment.
