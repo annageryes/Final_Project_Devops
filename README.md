@@ -101,27 +101,21 @@ The deploymetn is dvided into four roles ,each of them has a seperate README fil
   - unlock_jenkins----[YAML FILE](roles/unlock_jenkins/tasks/main.yml) -- [README FILE](roles/unlock_jenkins/README.md) 
   - conf--------------[YAML FILE](roles/conf/tasks/main.yml) -- [README FILE](roles/conf/README.md) 
   - conf_agent--------[YAML FILE](roles/conf_agents/tasks/main.yml) -- [README FILE](roles/conf_agents/README.md) 
-## Pipelines Overview
+## Pipelines Overview  
+## MORE DETAILS ABOUT THE PIPLINE ------>  [HERE](https://github.com/nastyak6/dummy_func/blob/main/README.md)
 ### DEV/Stage/Prod Pipelines
 - Multi-stage pipelines with all the checks we used in our [previous HW](https://github.com/annageryes/pipeline_task)
 
-attach image
  Jenkins file for CI/CD Piplines [Jenkinsfile](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsfile)
 
 ### Nightly Builds
 - Scheduled nightly jobs for code integration, testing , run at midnight daily on the nightly branch commits
 
-attach image
  Jenkins file for nigthly Piplines [Jenkinsfile](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsfile)
 
 ### Data Management Pipelines
 
 - *Revert Pipeline*: Automates rollback to the last known good state.
 - *Backup Pipeline*: Automates backup of critical data and artifacts.
-
- *we combined both actions into one pipline with condional arguments: 
- Jenkins file for Data Piplines [Jenkinsdata](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsdata)
-
-
-![Data Pipline](pipline_data.png)?raw=true "Title")
+Jenkins file for Data Piplines [Jenkinsdata](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsdata)
 
