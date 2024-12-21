@@ -102,8 +102,8 @@ The deploymetn is dvided into four roles ,each of them has a seperate README fil
   - conf--------------[YAML FILE](roles/conf/tasks/main.yml) -- [README FILE](roles/conf/README.md) 
   - conf_agent--------[YAML FILE](roles/conf_agents/tasks/main.yml) -- [README FILE](roles/conf_agents/README.md) 
 ## Pipelines Overview  
-## MORE DETAILS ABOUT THE PIPLINE ------>  [HERE](https://github.com/nastyak6/dummy_func/blob/main/README.md)
-### DEV/Stage/Prod Pipelines
+### MORE DETAILS ABOUT THE PIPLINES ------>  [HERE](https://github.com/nastyak6/dummy_func/blob/main/README.md)
+### CI/CD (DEV/Stage/Prod) Pipelines
 - Multi-stage pipelines with all the checks we used in our [previous HW](https://github.com/annageryes/pipeline_task)
 
  Jenkins file for CI/CD Piplines [Jenkinsfile](https://github.com/nastyak6/dummy_func/blob/main/Jenkinsfile)
